@@ -1,6 +1,8 @@
-def main():
-    print("Hello from widespread-backend!")
+from fastapi import FastAPI
 
+from app.routers.auth import auth_router
+from app.routers.user import user_router
 
-if __name__ == "__main__":
-    main()
+app = FastAPI()
+app.include_router(auth_router)
+app.include_router(user_router)
