@@ -10,7 +10,7 @@ class AuthService:
         self.user_repo = user_repo
         self.token_repo = token_repo
 
-    async def _set_refresh_token(self, response: Response, user_id: int, username: str):
+    async def _set_jwt_tokens(self, response: Response, user_id: int, username: str):
         tokens = create_jwt(user_id, username)
         await self.token_repo.save_refresh_token(user_id, tokens["refresh_token"])
         response.set_cookie(
@@ -20,6 +20,16 @@ class AuthService:
             secure=False,
             samesite="lax",
             max_age=30 * 24 * 3600,
+            partitioned=False,
+        )
+
+        response.set_cookie(
+            key="access_token",
+            value=tokens["access_token"],
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=15 * 60,
             partitioned=False,
         )
 
@@ -46,9 +56,9 @@ class AuthService:
 
         user_response = UserFromDB.model_validate(existing_user)
 
-        tokens = await self._set_refresh_token(response, user_response.id, user_response.username)
+        await self._set_jwt_tokens(response, user_response.id, user_response.username)
 
-        return {"user": user_response, "access_token": tokens["access_token"]}
+        return {"user": user_response}
 
     async def logout(self, response: Response, refresh_token: str):
         if not refresh_token:
@@ -62,7 +72,8 @@ class AuthService:
 
     async def refresh_token(self, response: Response, refresh_token: str):
         token_from_db = await self.token_repo.get_refresh_token(refresh_token)
-
+        print("token_from_db", token_from_db)
+        print("refresh_token", refresh_token)
         if not token_from_db:
             raise HTTPException(status_code=404, detail="Refresh token does not exist")
 
@@ -78,6 +89,6 @@ class AuthService:
 
         await self.token_repo.delete_refresh_token(refresh_token)
 
-        tokens = await self._set_refresh_token(response, payload.sub, payload.username)
+        tokens = await self._set_jwt_tokens(response, payload.sub, payload.username)
 
         return tokens
