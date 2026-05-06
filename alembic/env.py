@@ -14,6 +14,9 @@ sys.path.append(os.path.join(sys.path[0], "app"))
 
 from app.core.config import settings  # Добавили импорт нашего конфига
 from app.core.db import Base  # Добавили импорт нашей мета-БД
+from app.models.product import Product, ProductImage, ProductSize  # noqa: F401
+from app.models.token import RefreshToken  # noqa: F401
+from app.models.user import User  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

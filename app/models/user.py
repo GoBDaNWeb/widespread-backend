@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import BigInteger, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
-from app.models.token import RefreshToken
 from app.schemas.user import UserRoleEnum
+
+if TYPE_CHECKING:
+    from app.models.token import RefreshToken
 
 
 class User(Base):
