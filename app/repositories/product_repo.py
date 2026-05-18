@@ -1,0 +1,359 @@
+from abc import abstractmethod, ABC
+from typing import Sequence
+
+from fastapi import HTTPException
+from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
+
+from app.core.exceptions import CategoryNotFound, SizesNotFound, ProductNotFound, SlugAlreadyExists, SizeNotFound, \
+    ImageNotFound, BrandNotFound
+from app.models.product import Product, ProductSize, ProductCategory, ProductImage, ProductBrand
+from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, ProductSizeCreate, \
+    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate
+
+
+class ProductRepository(ABC):
+    @abstractmethod
+    async def create_category(self, data: CategoryCreate) -> ProductCategory:
+        pass
+
+    @abstractmethod
+    async def get_categories(self) -> Sequence[ProductCategory]:
+        pass
+
+    @abstractmethod
+    async def get_category(self, category_id: int):
+        pass
+
+    @abstractmethod
+    async def update_category(self, category_id: int, data) -> ProductCategory:
+        pass
+
+    @abstractmethod
+    async def delete_category(self, category_id: int):
+        pass
+
+    @abstractmethod
+    async def create_product(self, data: ProductCreate):
+        pass
+
+    @abstractmethod
+    async def get_product(self, product_id: int):
+        pass
+
+    @abstractmethod
+    async def get_products(self, page: int, page_size: int):
+        pass
+
+    @abstractmethod
+    async def update_product(self, product_id: int, data: ProductUpdate):
+        pass
+
+    @abstractmethod
+    async def delete_product(self, product_id: int):
+        pass
+
+    @abstractmethod
+    async def get_sizes(self):
+        pass
+
+    @abstractmethod
+    async def get_size(self, size_id: int):
+        pass
+
+    @abstractmethod
+    async def create_size(self, data: ProductSizeCreate):
+        pass
+
+    @abstractmethod
+    async def update_size(self, size_id: int, data: ProductSizeUpdate):
+        pass
+
+    @abstractmethod
+    async def delete_size(self, size_id: int):
+        pass
+
+    @abstractmethod
+    async def get_images_by_product(self, product_id: int) -> Sequence[ProductImage]:
+        pass
+
+    @abstractmethod
+    async def get_image(self, image_id: int) -> ProductImage:
+        pass
+
+    @abstractmethod
+    async def create_image(self, data: ProductImageCreate) -> ProductImage:
+        pass
+
+    @abstractmethod
+    async def update_image(self, image_id: int, data: ProductImageUpdate) -> ProductImage:
+        pass
+
+    @abstractmethod
+    async def delete_image(self, image_id: int) -> None:
+        pass
+
+    @abstractmethod
+    async def create_brand(self, data: BrandCreate) -> ProductBrand:
+        pass
+
+    @abstractmethod
+    async def get_brands(self) -> Sequence[ProductBrand]:
+        pass
+
+    @abstractmethod
+    async def get_brand(self, brand_id: int) -> ProductBrand:
+        pass
+
+    @abstractmethod
+    async def update_brand(self, brand_id: int, data: BrandUpdate) -> ProductBrand:
+        pass
+
+    @abstractmethod
+    async def delete_brand(self, brand_id: int) -> None:
+        pass
+
+
+class SQLAlchemyProductRepository:
+    def __init__(self, session):
+        self.session = session
+
+    async def create_category(self, data: CategoryCreate) -> ProductCategory:
+        obj = ProductCategory(**data.model_dump())
+        self.session.add(obj)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def get_categories(self) -> Sequence[ProductCategory]:
+        stmt = select(ProductCategory)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_category(self, category_id: int) -> ProductCategory:
+        stmt = select(ProductCategory).where(ProductCategory.id == category_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise CategoryNotFound(category_id)
+        return obj
+
+    async def update_category(self, category_id: int, data: CategoryUpdate) -> ProductCategory:
+        obj = await self.get_category(category_id)
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(obj, field, value)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def delete_category(self, category_id: int) -> None:
+        obj = await self.get_category(category_id)
+        await self.session.delete(obj)
+        await self.session.commit()
+
+    @staticmethod
+    def _product_query():
+        return select(Product).options(
+            selectinload(Product.images),
+            selectinload(Product.sizes),
+            selectinload(Product.category),
+            selectinload(Product.brand),
+        )
+
+    async def _resolve_sizes(self, size_ids: list[int]) -> list[ProductSize]:
+        if not size_ids:
+            return []
+        stmt = select(ProductSize).where(ProductSize.id.in_(size_ids))
+        result = await self.session.execute(stmt)
+        found = result.scalars().all()
+        if len(found) != len(size_ids):
+            found_ids = {s.id for s in found}
+            missing = set(size_ids) - found_ids
+            raise SizesNotFound(missing)
+        return list(found)
+
+    async def get_product(self, product_id: int) -> Product:
+        stmt = self._product_query().where(Product.id == product_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise ProductNotFound(product_id)
+        return obj
+
+    async def get_products(self, page: int, page_size: int) -> tuple[Sequence[Product], int]:
+        total_result = await self.session.execute(select(func.count()).select_from(Product))
+        total = total_result.scalar_one()
+
+        offset = (page - 1) * page_size
+        stmt = self._product_query().offset(offset).limit(page_size)
+        result = await self.session.execute(stmt)
+        return result.scalars().all(), total
+
+    async def create_product(self, data: ProductCreate) -> Product:
+        if data.category_id:
+            await self.get_category(data.category_id)
+        if data.brand_id:
+            await self.get_brand(data.brand_id)
+
+        sizes = await self._resolve_sizes(data.size_ids)
+
+        payload = data.model_dump(exclude={"size_ids"})
+        obj = Product(**payload)
+        obj.sizes = sizes
+        self.session.add(obj)
+        try:
+            await self.session.commit()
+        except IntegrityError as e:
+            await self.session.rollback()
+            if "product_slug_key" in str(e):
+                raise SlugAlreadyExists(data.slug)
+            raise
+        await self.session.refresh(obj)
+        return await self.get_product(obj.id)
+
+    async def update_product(self, product_id: int, data: ProductUpdate) -> Product:
+        obj = await self.get_product(product_id)  # бросит ProductNotFound
+
+        update_data = data.model_dump(exclude_unset=True)
+        size_ids = update_data.pop("size_ids", None)
+
+        if "category_id" in update_data and update_data["category_id"] is not None:
+            await self.get_category(update_data["category_id"])
+        if "brand_id" in update_data and update_data["brand_id"] is not None:
+            await self.get_brand(update_data["brand_id"])
+
+        for field, value in update_data.items():
+            setattr(obj, field, value)
+
+        if size_ids is not None:
+            obj.sizes = await self._resolve_sizes(size_ids)
+
+        try:
+            await self.session.commit()
+        except IntegrityError as e:
+            await self.session.rollback()
+            if "product_slug_key" in str(e):
+                raise SlugAlreadyExists(update_data.get("slug", ""))
+            raise
+        return await self.get_product(product_id)
+
+    async def delete_product(self, product_id: int) -> None:
+        obj = await self.get_product(product_id)
+        await self.session.delete(obj)
+        await self.session.commit()
+
+    async def get_sizes(self) -> Sequence[ProductSize]:
+        stmt = select(ProductSize)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_size(self, size_id: int) -> ProductSize:
+        stmt = select(ProductSize).where(ProductSize.id == size_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise SizeNotFound(size_id)
+        return obj
+
+    async def create_size(self, data: ProductSizeCreate) -> ProductSize:
+        obj = ProductSize(**data.model_dump())
+        self.session.add(obj)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+
+    async def update_size(self, size_id: int, data: ProductSizeUpdate) -> ProductSize:
+        obj = await self.get_size(size_id)
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(obj, field, value)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+
+    async def delete_size(self, size_id: int):
+        obj = await self.get_size(size_id)
+        await self.session.delete(obj)
+        await self.session.commit()
+
+    async def get_images_by_product(self, product_id: int) -> Sequence[ProductImage]:
+        stmt = select(ProductImage).where(ProductImage.product_id == product_id).order_by(ProductImage.order)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_image(self, image_id: int) -> ProductImage:
+        stmt = select(ProductImage).where(ProductImage.id == image_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise ImageNotFound(image_id)
+        return obj
+
+    async def create_image(self, data: ProductImageCreate) -> ProductImage:
+        # проверяем что продукт существует
+        await self.get_product(data.product_id)
+        obj = ProductImage(**data.model_dump())
+        self.session.add(obj)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def update_image(self, image_id: int, data: ProductImageUpdate) -> ProductImage:
+        obj = await self.get_image(image_id)
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(obj, field, value)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def delete_image(self, image_id: int) -> None:
+        obj = await self.get_image(image_id)
+        await self.session.delete(obj)
+        await self.session.commit()
+
+    async def create_brand(self, data: BrandCreate) -> ProductBrand:
+        obj = ProductBrand(**data.model_dump())
+        self.session.add(obj)
+        try:
+            await self.session.commit()
+        except IntegrityError as e:
+            await self.session.rollback()
+            if "brand_slug_key" in str(e):
+                raise SlugAlreadyExists(data.slug)
+            raise
+        await self.session.refresh(obj)
+        return obj
+
+    async def get_brands(self) -> Sequence[ProductBrand]:
+        stmt = select(ProductBrand)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_brand(self, brand_id: int) -> ProductBrand:
+        stmt = select(ProductBrand).where(ProductBrand.id == brand_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise BrandNotFound(brand_id)
+        return obj
+
+    async def update_brand(self, brand_id: int, data: BrandUpdate) -> ProductBrand:
+        obj = await self.get_brand(brand_id)
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(obj, field, value)
+        try:
+            await self.session.commit()
+        except IntegrityError as e:
+            await self.session.rollback()
+            if "brand_slug_key" in str(e):
+                raise SlugAlreadyExists(data.slug or "")
+            raise
+        await self.session.refresh(obj)
+        return obj
+
+    async def delete_brand(self, brand_id: int) -> None:
+        obj = await self.get_brand(brand_id)
+        await self.session.delete(obj)
+        await self.session.commit()

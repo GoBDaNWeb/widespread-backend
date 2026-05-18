@@ -72,8 +72,7 @@ class AuthService:
 
     async def refresh_token(self, response: Response, refresh_token: str):
         token_from_db = await self.token_repo.get_refresh_token(refresh_token)
-        print("token_from_db", token_from_db)
-        print("refresh_token", refresh_token)
+        print('refresh_token',refresh_token)
         if not token_from_db:
             raise HTTPException(status_code=404, detail="Refresh token does not exist")
 
@@ -81,6 +80,8 @@ class AuthService:
             raise HTTPException(status_code=400, detail="No refresh token provided")
 
         payload = decode_jwt(refresh_token)
+
+        print('payload',payload)
         if not payload:
             raise HTTPException(status_code=400, detail="Token expired or invalid")
 
