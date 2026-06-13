@@ -2,15 +2,16 @@ from abc import abstractmethod, ABC
 from typing import Sequence
 
 from fastapi import HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import CategoryNotFound, SizesNotFound, ProductNotFound, SlugAlreadyExists, SizeNotFound, \
     ImageNotFound, BrandNotFound
-from app.models.product import Product, ProductSize, ProductCategory, ProductImage, ProductBrand
+from app.models.product import Product, ProductSize, ProductCategory, ProductImage, ProductBrand, product_size_association
 from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, ProductSizeCreate, \
-    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate
+    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters, \
+    ProductSortField, SortOrder
 
 
 class ProductRepository(ABC):
@@ -43,7 +44,7 @@ class ProductRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_products(self, page: int, page_size: int):
+    async def get_products(self, page: int, page_size: int, filters: "ProductFilters | None" = None):
         pass
 
     @abstractmethod
@@ -181,12 +182,72 @@ class SQLAlchemyProductRepository:
             raise ProductNotFound(product_id)
         return obj
 
-    async def get_products(self, page: int, page_size: int) -> tuple[Sequence[Product], int]:
-        total_result = await self.session.execute(select(func.count()).select_from(Product))
+    @staticmethod
+    def _build_filter_conditions(filters: ProductFilters | None) -> list:
+        conditions = []
+        if filters is None:
+            return conditions
+
+        if filters.search:
+            pattern = f"%{filters.search}%"
+            conditions.append(
+                or_(Product.title.ilike(pattern), Product.description.ilike(pattern))
+            )
+        if filters.category_id is not None:
+            conditions.append(Product.category_id == filters.category_id)
+        if filters.brand_id is not None:
+            conditions.append(Product.brand_id == filters.brand_id)
+        if filters.gender is not None:
+            conditions.append(Product.gender == filters.gender.value)
+        if filters.is_published is not None:
+            conditions.append(Product.is_published == filters.is_published)
+        if filters.is_archived is not None:
+            conditions.append(Product.is_archived == filters.is_archived)
+        if filters.min_price is not None:
+            conditions.append(Product.price >= filters.min_price)
+        if filters.max_price is not None:
+            conditions.append(Product.price <= filters.max_price)
+        if filters.size_ids:
+            size_subq = (
+                select(product_size_association.c.product_id)
+                .where(product_size_association.c.size_id.in_(filters.size_ids))
+                .group_by(product_size_association.c.product_id)
+                .having(func.count() == len(filters.size_ids))
+            )
+            conditions.append(Product.id.in_(size_subq))
+        return conditions
+
+    @staticmethod
+    def _build_order_by(filters: ProductFilters | None):
+        sort_by = filters.sort_by if filters else ProductSortField.id
+        order = filters.order if filters else SortOrder.asc
+        column = {
+            ProductSortField.id: Product.id,
+            ProductSortField.title: Product.title,
+            ProductSortField.price: Product.price,
+        }[sort_by]
+        return column.desc() if order == SortOrder.desc else column.asc()
+
+    async def get_products(
+        self, page: int, page_size: int, filters: ProductFilters | None = None
+    ) -> tuple[Sequence[Product], int]:
+        conditions = self._build_filter_conditions(filters)
+
+        count_stmt = select(func.count()).select_from(Product)
+        if conditions:
+            count_stmt = count_stmt.where(*conditions)
+        total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one()
 
         offset = (page - 1) * page_size
+<<<<<<< Updated upstream
         stmt = self._product_query().offset(offset).limit(page_size)
+=======
+        stmt = self._product_query()
+        if conditions:
+            stmt = stmt.where(*conditions)
+        stmt = stmt.order_by(self._build_order_by(filters)).offset(offset).limit(page_size)
+>>>>>>> Stashed changes
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
 

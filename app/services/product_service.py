@@ -5,7 +5,7 @@ from app.core.exceptions import CategoryNotFound, SizesNotFound, SlugAlreadyExis
     ImageNotFound, BrandNotFound
 from app.repositories.product_repo import ProductRepository
 from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, ProductSizeCreate, \
-    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate
+    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters
 
 
 class ProductService:
@@ -56,8 +56,8 @@ class ProductService:
         except ProductNotFound:
             raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
 
-    async def get_products(self, page: int, page_size: int):
-        return await self.product_repo.get_products(page, page_size)
+    async def get_products(self, page: int, page_size: int, filters: ProductFilters | None = None):
+        return await self.product_repo.get_products(page, page_size, filters)
 
     async def update_product(self, product_id: int, data: ProductUpdate):
         try:
