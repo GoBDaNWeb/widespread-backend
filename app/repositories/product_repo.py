@@ -186,7 +186,7 @@ class SQLAlchemyProductRepository:
         total = total_result.scalar_one()
 
         offset = (page - 1) * page_size
-        stmt = self._product_query().offset(offset).limit(page_size)
+        stmt = self._product_query().order_by(Product.id).offset(offset).limit(page_size)
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
 

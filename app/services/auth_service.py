@@ -19,7 +19,7 @@ class AuthService:
             httponly=True,
             secure=False,
             samesite="lax",
-            max_age=30 * 24 * 3600,
+            max_age=15 * 24 * 3600,
             partitioned=False,
         )
 
@@ -67,6 +67,7 @@ class AuthService:
         await self.token_repo.delete_refresh_token(refresh_token)
 
         response.delete_cookie("refresh_token")
+        response.delete_cookie("access_token")
 
         return {"detail": "Successfully logged out"}
 
