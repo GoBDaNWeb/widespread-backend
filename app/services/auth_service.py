@@ -72,8 +72,14 @@ class AuthService:
         return {"detail": "Successfully logged out"}
 
     async def refresh_token(self, response: Response, refresh_token: str):
+        if not refresh_token:
+            raise HTTPException(
+                status_code=401,
+                detail="Refresh token missing",
+            )
         token_from_db = await self.token_repo.get_refresh_token(refresh_token)
         print('refresh_token',refresh_token)
+
         if not token_from_db:
             raise HTTPException(status_code=404, detail="Refresh token does not exist")
 

@@ -10,6 +10,31 @@ class Gender(str, Enum):
     female = "female"
 
 
+class ProductSortField(str, Enum):
+    id = "id"
+    title = "title"
+    price = "price"
+
+
+class SortOrder(str, Enum):
+    asc = "asc"
+    desc = "desc"
+
+
+class ProductFilters(BaseModel):
+    search: Optional[str] = None
+    category_id: Optional[int] = None
+    brand_id: Optional[int] = None
+    gender: Optional[Gender] = None
+    is_published: Optional[bool] = None
+    is_archived: Optional[bool] = None
+    min_price: Optional[Decimal] = None
+    max_price: Optional[Decimal] = None
+    size_ids: Optional[list[int]] = None
+    sort_by: ProductSortField = ProductSortField.id
+    order: SortOrder = SortOrder.asc
+
+
 class CategoryCreate(BaseModel):
     name: str
     slug: str

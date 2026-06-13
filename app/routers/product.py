@@ -1,10 +1,13 @@
 import math
+from decimal import Decimal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
 from app.dependencies.services import get_product_service
 from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, ProductSizeCreate, \
-    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, ProductListOut, BrandCreate, BrandUpdate
+    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, ProductListOut, BrandCreate, BrandUpdate, ProductFilters, \
+    Gender, ProductSortField, SortOrder
 
 category_router = APIRouter(prefix="/categories", tags=["Product/Category"])
 
@@ -41,11 +44,35 @@ async def get_product(product_id: int, service=Depends(get_product_service)):
 
 @product_router.get("/get_products", response_model=ProductListOut)
 async def get_products(
+    search: str | None = None,
+    category_id: int | None = None,
+    brand_id: int | None = None,
+    gender: Gender | None = None,
+    is_published: bool | None = None,
+    is_archived: bool | None = None,
+    min_price: Decimal | None = None,
+    max_price: Decimal | None = None,
+    size_ids: Annotated[list[int] | None, Query()] = None,
+    sort_by: ProductSortField = ProductSortField.id,
+    order: SortOrder = SortOrder.asc,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     service=Depends(get_product_service),
 ):
-    items, total = await service.get_products(page, page_size)
+    filters = ProductFilters(
+        search=search,
+        category_id=category_id,
+        brand_id=brand_id,
+        gender=gender,
+        is_published=is_published,
+        is_archived=is_archived,
+        min_price=min_price,
+        max_price=max_price,
+        size_ids=size_ids,
+        sort_by=sort_by,
+        order=order,
+    )
+    items, total = await service.get_products(page, page_size, filters)
     return ProductListOut(
         items=items,
         total=total,
