@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from app.dependencies.services import get_product_service
 from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, ProductSizeCreate, \
     ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, ProductListOut, BrandCreate, BrandUpdate, ProductFilters, \
-    Gender, ProductSortField, SortOrder
+    Gender, ProductSortField, SortOrder, ProductStats
 
 category_router = APIRouter(prefix="/categories", tags=["Product/Category"])
 
@@ -37,6 +37,10 @@ product_router = APIRouter(prefix="/products", tags=["Product"])
 @product_router.post("/create_product")
 async def create_product(data: ProductCreate, service=Depends(get_product_service)):
     return await service.create_product(data)
+
+@product_router.get("/stats", response_model=ProductStats)
+async def get_stats(service=Depends(get_product_service)):
+    return await service.get_stats()
 
 @product_router.get("/get_product/{product_id}")
 async def get_product(product_id: int, service=Depends(get_product_service)):

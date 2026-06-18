@@ -2,7 +2,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Gender(str, Enum):
@@ -163,3 +163,47 @@ class ProductListOut(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class PriceStats(BaseModel):
+    min: Optional[Decimal] = None
+    max: Optional[Decimal] = None
+    avg: Optional[Decimal] = None
+
+
+class CategoryStat(BaseModel):
+    id: int
+    name: str
+    count: int
+
+
+class BrandStat(BaseModel):
+    id: int
+    name: str
+    count: int
+
+
+class GenderStats(BaseModel):
+    male: int = 0
+    female: int = 0
+
+
+class PriceBucket(BaseModel):
+    from_: Decimal = Field(alias="from")
+    to: Optional[Decimal] = None
+    count: int
+
+    model_config = {"populate_by_name": True}
+
+
+class ProductStats(BaseModel):
+    total: int
+    published: int
+    archived: int
+    drafts: int
+    on_sale: int
+    price: PriceStats
+    by_category: list[CategoryStat]
+    by_brand: list[BrandStat]
+    by_gender: GenderStats
+    price_buckets: list[PriceBucket]
