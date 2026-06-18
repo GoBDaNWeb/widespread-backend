@@ -59,6 +59,9 @@ class ProductService:
     async def get_products(self, page: int, page_size: int, filters: ProductFilters | None = None):
         return await self.product_repo.get_products(page, page_size, filters)
 
+    async def get_stats(self):
+        return await self.product_repo.get_stats()
+
     async def update_product(self, product_id: int, data: ProductUpdate):
         try:
             return await self.product_repo.update_product(product_id, data)

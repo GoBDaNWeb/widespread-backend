@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from typing import Sequence
 
 from fastapi import HTTPException
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -11,7 +11,17 @@ from app.core.exceptions import CategoryNotFound, SizesNotFound, ProductNotFound
 from app.models.product import Product, ProductSize, ProductCategory, ProductImage, ProductBrand, product_size_association
 from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, ProductSizeCreate, \
     ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters, \
-    ProductSortField, SortOrder
+    ProductSortField, SortOrder, ProductStats, PriceStats, CategoryStat, BrandStat, GenderStats, PriceBucket, Gender
+
+# Границы ценовых корзин для статистики; верхняя граница последней — None (всё, что выше)
+PRICE_BUCKETS: list[tuple[int, int | None]] = [
+    (0, 50),
+    (50, 100),
+    (100, 200),
+    (200, 500),
+    (500, 1000),
+    (1000, None),
+]
 
 
 class ProductRepository(ABC):
@@ -45,6 +55,10 @@ class ProductRepository(ABC):
 
     @abstractmethod
     async def get_products(self, page: int, page_size: int, filters: "ProductFilters | None" = None):
+        pass
+
+    @abstractmethod
+    async def get_stats(self):
         pass
 
     @abstractmethod
@@ -246,6 +260,65 @@ class SQLAlchemyProductRepository:
         stmt = stmt.order_by(self._build_order_by(filters)).offset(offset).limit(page_size)
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
+
+    async def get_stats(self) -> ProductStats:
+        bucket_cols = []
+        for i, (lo, hi) in enumerate(PRICE_BUCKETS):
+            cond = Product.price >= lo if hi is None else and_(Product.price >= lo, Product.price < hi)
+            bucket_cols.append(func.count().filter(cond).label(f"bucket_{i}"))
+
+        agg_stmt = select(
+            func.count().label("total"),
+            func.count().filter(Product.is_published.is_(True)).label("published"),
+            func.count().filter(Product.is_archived.is_(True)).label("archived"),
+            func.count().filter(
+                Product.is_published.is_(False), Product.is_archived.is_(False)
+            ).label("drafts"),
+            func.count().filter(Product.sale_price.isnot(None)).label("on_sale"),
+            func.min(Product.price).label("min_price"),
+            func.max(Product.price).label("max_price"),
+            func.avg(Product.price).label("avg_price"),
+            func.count().filter(Product.gender == Gender.male.value).label("male"),
+            func.count().filter(Product.gender == Gender.female.value).label("female"),
+            *bucket_cols,
+        )
+        agg = (await self.session.execute(agg_stmt)).one()
+
+        category_stmt = (
+            select(ProductCategory.id, ProductCategory.name, func.count(Product.id).label("count"))
+            .join(Product, Product.category_id == ProductCategory.id)
+            .group_by(ProductCategory.id, ProductCategory.name)
+            .order_by(func.count(Product.id).desc())
+        )
+        categories = (await self.session.execute(category_stmt)).all()
+
+        brand_stmt = (
+            select(ProductBrand.id, ProductBrand.name, func.count(Product.id).label("count"))
+            .join(Product, Product.brand_id == ProductBrand.id)
+            .group_by(ProductBrand.id, ProductBrand.name)
+            .order_by(func.count(Product.id).desc())
+        )
+        brands = (await self.session.execute(brand_stmt)).all()
+
+        return ProductStats(
+            total=agg.total,
+            published=agg.published,
+            archived=agg.archived,
+            drafts=agg.drafts,
+            on_sale=agg.on_sale,
+            price=PriceStats(
+                min=agg.min_price,
+                max=agg.max_price,
+                avg=round(agg.avg_price, 2) if agg.avg_price is not None else None,
+            ),
+            by_category=[CategoryStat(id=c.id, name=c.name, count=c.count) for c in categories],
+            by_brand=[BrandStat(id=b.id, name=b.name, count=b.count) for b in brands],
+            by_gender=GenderStats(male=agg.male, female=agg.female),
+            price_buckets=[
+                PriceBucket(**{"from": lo, "to": hi, "count": getattr(agg, f"bucket_{i}")})
+                for i, (lo, hi) in enumerate(PRICE_BUCKETS)
+            ],
+        )
 
     async def create_product(self, data: ProductCreate) -> Product:
         if data.category_id:
