@@ -3,6 +3,7 @@ from typing import Sequence
 
 from fastapi import HTTPException
 from sqlalchemy import select, func, or_, and_
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +14,6 @@ from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, P
     ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters, \
     ProductSortField, SortOrder, ProductStats, PriceStats, CategoryStat, BrandStat, GenderStats, PriceBucket, Gender
 
-# Границы ценовых корзин для статистики; верхняя граница последней — None (всё, что выше)
 PRICE_BUCKETS: list[tuple[int, int | None]] = [
     (0, 50),
     (50, 100),

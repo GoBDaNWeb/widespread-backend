@@ -10,6 +10,7 @@ from app.schemas.product import CategoryCreate, CategoryOut, CategoryUpdate, Pro
     ProductSizeCreate, ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, ProductListOut, BrandCreate, \
     BrandUpdate, ProductFilters, Gender, ProductSortField, SortOrder, ProductStats
 
+
 category_router = APIRouter(prefix="/categories", tags=["Product/Category"])
 
 @category_router.post("/create_category", response_model=CategoryOut)
@@ -79,6 +80,7 @@ async def get_products(
         order=order,
     )
     items, total = await service.get_products(page, page_size, filters, lang)
+
     return ProductListOut(
         items=items,
         total=total,

@@ -64,7 +64,7 @@ class ProductService:
         return ProductOut.localized(obj, lang)
 
     async def get_products(
-        self, page: int, page_size: int, filters: ProductFilters | None = None, lang: str = DEFAULT_LANGUAGE
+            self, page: int, page_size: int, filters: ProductFilters | None = None, lang: str = DEFAULT_LANGUAGE
     ):
         items, total = await self.product_repo.get_products(page, page_size, filters)
         return [ProductOut.localized(p, lang) for p in items], total
