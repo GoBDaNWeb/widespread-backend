@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 15 * 24 * 60
+    REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = 30
 
     @property
     def ASYNC_DATABASE_URL(self):

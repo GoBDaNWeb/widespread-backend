@@ -345,7 +345,7 @@ class SQLAlchemyProductRepository:
         return await self.get_product(obj.id)
 
     async def update_product(self, product_id: int, data: ProductUpdate) -> Product:
-        obj = await self.get_product(product_id)  # бросит ProductNotFound
+        obj = await self.get_product(product_id)  
 
         update_data = data.model_dump(exclude_unset=True)
         size_ids = update_data.pop("size_ids", None)
@@ -424,7 +424,6 @@ class SQLAlchemyProductRepository:
         return obj
 
     async def create_image(self, data: ProductImageCreate) -> ProductImage:
-        # проверяем что продукт существует
         await self.get_product(data.product_id)
         obj = ProductImage(**data.model_dump())
         self.session.add(obj)

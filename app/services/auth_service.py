@@ -1,5 +1,7 @@
 from fastapi import HTTPException, Response
+from datetime import datetime, timedelta, timezone
 
+from app.core.config import settings
 from app.core.security import create_jwt, decode_jwt, verify_password
 from app.schemas.token import TokenEnum
 from app.schemas.user import UserCredentials, UserFromDB
@@ -77,25 +79,31 @@ class AuthService:
                 status_code=401,
                 detail="Refresh token missing",
             )
-        token_from_db = await self.token_repo.get_refresh_token(refresh_token)
-        print('refresh_token',refresh_token)
-
-        if not token_from_db:
-            raise HTTPException(status_code=404, detail="Refresh token does not exist")
-
-        if not refresh_token:
-            raise HTTPException(status_code=400, detail="No refresh token provided")
-
         payload = decode_jwt(refresh_token)
-
-        print('payload',payload)
-        if not payload:
-            raise HTTPException(status_code=400, detail="Token expired or invalid")
 
         if payload.type != TokenEnum.REFRESH_TOKEN:
             raise HTTPException(status_code=400, detail="Invalid refresh token")
 
-        await self.token_repo.delete_refresh_token(refresh_token)
+        token_from_db = await self.token_repo.get_refresh_token(refresh_token)
+
+        if not token_from_db:
+            raise HTTPException(status_code=404, detail="Refresh token does not exist")
+
+        if token_from_db.rotated_at is not None:
+            grace_period = timedelta(seconds=settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS)
+
+            if datetime.now(timezone.utc) - token_from_db.rotated_at > grace_period:
+                await self.token_repo.revoke_user_tokens(token_from_db.user_id)
+                raise HTTPException(status_code=401, detail="Refresh token already used")
+
+            active_token = await self.token_repo.get_active_refresh_token(token_from_db.user_id)
+
+            if not active_token:
+                raise HTTPException(status_code=401, detail="Session expired")
+
+            token_from_db = active_token
+
+        await self.token_repo.mark_rotated(token_from_db)
 
         tokens = await self._set_jwt_tokens(response, payload.sub, payload.username)
 

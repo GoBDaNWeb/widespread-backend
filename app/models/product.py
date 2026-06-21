@@ -44,7 +44,7 @@ class ProductSize(Base):
     __tablename__ = "size"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)  # XS, S, M, L, XL
+    name: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
 
     products: Mapped[list["Product"]] = relationship(
         back_populates="sizes", secondary=product_size_association
