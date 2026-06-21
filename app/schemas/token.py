@@ -10,7 +10,7 @@ class TokenEnum(str, Enum):
 
 class TokenPayload(BaseModel):
     sub: int
-    exp: int
+    exp: float
     username: str
     type: TokenEnum
 

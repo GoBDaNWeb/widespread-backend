@@ -10,6 +10,19 @@ class Gender(str, Enum):
     female = "female"
 
 
+GENDER_LABELS: dict[str, dict[str, str]] = {
+    "ru": {"male": "Мужской", "female": "Женский"},
+    "en": {"male": "Male", "female": "Female"},
+}
+
+
+def gender_label(value: str | None, lang: str) -> str | None:
+    if value is None:
+        return None
+    labels = GENDER_LABELS.get(lang, GENDER_LABELS["ru"])
+    return labels.get(value, value)
+
+
 class ProductSortField(str, Enum):
     id = "id"
     title = "title"
@@ -36,12 +49,14 @@ class ProductFilters(BaseModel):
 
 
 class CategoryCreate(BaseModel):
-    name: str
+    name_ru: str
+    name_en: str
     slug: str
 
 
 class CategoryUpdate(BaseModel):
-    name: Optional[str] = None
+    name_ru: Optional[str] = None
+    name_en: Optional[str] = None
     slug: Optional[str] = None
 
 
@@ -51,6 +66,10 @@ class CategoryOut(BaseModel):
     slug: str
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def localized(cls, obj, lang: str) -> "CategoryOut":
+        return cls(id=obj.id, name=obj.localized_name(lang), slug=obj.slug)
 
 
 class BrandCreate(BaseModel):
@@ -95,7 +114,7 @@ class ProductImageOut(BaseModel):
 
 
 class ProductSizeCreate(BaseModel):
-    name: str  # XS, S, M, L, XL
+    name: str
 
 
 class ProductSizeUpdate(BaseModel):
@@ -120,7 +139,6 @@ class ProductCreate(BaseModel):
     is_archived: bool = False
     category_id: Optional[int] = None
     brand_id: Optional[int] = None
-    # IDs уже существующих размеров из таблицы product_size
     size_ids: list[int] = []
 
 
@@ -135,7 +153,6 @@ class ProductUpdate(BaseModel):
     is_archived: Optional[bool] = None
     category_id: Optional[int] = None
     brand_id: Optional[int] = None
-    # Передай новый полный список ID размеров — заменит текущий
     size_ids: Optional[list[int]] = None
 
 
@@ -147,6 +164,7 @@ class ProductOut(BaseModel):
     sale_price: Optional[Decimal]
     slug: str
     gender: Optional[Gender]
+    gender_label: Optional[str] = None
     is_published: bool
     is_archived: bool
     category: Optional[CategoryOut] = None
@@ -155,6 +173,25 @@ class ProductOut(BaseModel):
     sizes: list[ProductSizeOut] = []
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def localized(cls, obj, lang: str) -> "ProductOut":
+        return cls(
+            id=obj.id,
+            title=obj.title,
+            description=obj.description,
+            price=obj.price,
+            sale_price=obj.sale_price,
+            slug=obj.slug,
+            gender=obj.gender,
+            gender_label=gender_label(obj.gender, lang),
+            is_published=obj.is_published,
+            is_archived=obj.is_archived,
+            category=CategoryOut.localized(obj.category, lang) if obj.category else None,
+            brand=BrandOut.model_validate(obj.brand) if obj.brand else None,
+            images=[ProductImageOut.model_validate(i) for i in obj.images],
+            sizes=[ProductSizeOut.model_validate(s) for s in obj.sizes],
+        )
 
 
 class ProductListOut(BaseModel):

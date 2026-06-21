@@ -58,7 +58,7 @@ class ProductRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_stats(self):
+    async def get_stats(self, lang: str = "ru"):
         pass
 
     @abstractmethod
@@ -261,7 +261,7 @@ class SQLAlchemyProductRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
 
-    async def get_stats(self) -> ProductStats:
+    async def get_stats(self, lang: str = "ru") -> ProductStats:
         bucket_cols = []
         for i, (lo, hi) in enumerate(PRICE_BUCKETS):
             cond = Product.price >= lo if hi is None else and_(Product.price >= lo, Product.price < hi)
@@ -284,10 +284,11 @@ class SQLAlchemyProductRepository:
         )
         agg = (await self.session.execute(agg_stmt)).one()
 
+        category_name = ProductCategory.name_en if lang == "en" else ProductCategory.name_ru
         category_stmt = (
-            select(ProductCategory.id, ProductCategory.name, func.count(Product.id).label("count"))
+            select(ProductCategory.id, category_name.label("name"), func.count(Product.id).label("count"))
             .join(Product, Product.category_id == ProductCategory.id)
-            .group_by(ProductCategory.id, ProductCategory.name)
+            .group_by(ProductCategory.id, category_name)
             .order_by(func.count(Product.id).desc())
         )
         categories = (await self.session.execute(category_stmt)).all()

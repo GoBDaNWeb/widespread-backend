@@ -3,32 +3,37 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.exceptions import CategoryNotFound, SizesNotFound, SlugAlreadyExists, ProductNotFound, SizeNotFound, \
     ImageNotFound, BrandNotFound
+from app.dependencies.i18n import DEFAULT_LANGUAGE
 from app.repositories.product_repo import ProductRepository
-from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, ProductSizeCreate, \
-    ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters
+from app.schemas.product import CategoryCreate, CategoryOut, CategoryUpdate, ProductCreate, ProductOut, ProductUpdate, \
+    ProductSizeCreate, ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters
 
 
 class ProductService:
     def __init__(self, product_repo: ProductRepository):
         self.product_repo = product_repo
 
-    async def create_category(self, data: CategoryCreate):
-        return await self.product_repo.create_category(data)
+    async def create_category(self, data: CategoryCreate, lang: str = DEFAULT_LANGUAGE):
+        obj = await self.product_repo.create_category(data)
+        return CategoryOut.localized(obj, lang)
 
-    async def get_categories(self):
-        return await self.product_repo.get_categories()
+    async def get_categories(self, lang: str = DEFAULT_LANGUAGE):
+        objs = await self.product_repo.get_categories()
+        return [CategoryOut.localized(o, lang) for o in objs]
 
-    async def get_category(self, category_id: int):
+    async def get_category(self, category_id: int, lang: str = DEFAULT_LANGUAGE):
         try:
-            return await self.product_repo.get_category(category_id)
+            obj = await self.product_repo.get_category(category_id)
         except CategoryNotFound:
             raise HTTPException(status_code=404, detail=f"Category {category_id} not found")
+        return CategoryOut.localized(obj, lang)
 
-    async def update_category(self, category_id: int, data: CategoryUpdate):
+    async def update_category(self, category_id: int, data: CategoryUpdate, lang: str = DEFAULT_LANGUAGE):
         try:
-            return await self.product_repo.update_category(category_id, data)
+            obj = await self.product_repo.update_category(category_id, data)
         except CategoryNotFound:
             raise HTTPException(status_code=404, detail=f"Category {category_id} not found")
+        return CategoryOut.localized(obj, lang)
 
     async def delete_category(self, category_id: int):
         try:
@@ -36,9 +41,10 @@ class ProductService:
         except CategoryNotFound:
             raise HTTPException(status_code=404, detail=f"Category {category_id} not found")
 
-    async def create_product(self, data: ProductCreate):
+    async def create_product(self, data: ProductCreate, lang: str = DEFAULT_LANGUAGE):
         try:
-            return await self.product_repo.create_product(data)
+            obj = await self.product_repo.create_product(data)
+            return ProductOut.localized(obj, lang)
         except CategoryNotFound as e:
             raise HTTPException(status_code=404, detail=f"Category {e.category_id} not found")
         except BrandNotFound as e:
@@ -50,21 +56,26 @@ class ProductService:
         except IntegrityError:
             raise HTTPException(status_code=400, detail="Data integrity error")
 
-    async def get_product(self, product_id: int):
+    async def get_product(self, product_id: int, lang: str = DEFAULT_LANGUAGE):
         try:
-            return await self.product_repo.get_product(product_id)
+            obj = await self.product_repo.get_product(product_id)
         except ProductNotFound:
             raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+        return ProductOut.localized(obj, lang)
 
-    async def get_products(self, page: int, page_size: int, filters: ProductFilters | None = None):
-        return await self.product_repo.get_products(page, page_size, filters)
+    async def get_products(
+        self, page: int, page_size: int, filters: ProductFilters | None = None, lang: str = DEFAULT_LANGUAGE
+    ):
+        items, total = await self.product_repo.get_products(page, page_size, filters)
+        return [ProductOut.localized(p, lang) for p in items], total
 
-    async def get_stats(self):
-        return await self.product_repo.get_stats()
+    async def get_stats(self, lang: str = DEFAULT_LANGUAGE):
+        return await self.product_repo.get_stats(lang)
 
-    async def update_product(self, product_id: int, data: ProductUpdate):
+    async def update_product(self, product_id: int, data: ProductUpdate, lang: str = DEFAULT_LANGUAGE):
         try:
-            return await self.product_repo.update_product(product_id, data)
+            obj = await self.product_repo.update_product(product_id, data)
+            return ProductOut.localized(obj, lang)
         except ProductNotFound:
             raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
         except CategoryNotFound as e:

@@ -7,8 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 
 
-# Ассоциативная таблица Product <-> Size (M2M)
-# stock хранится здесь — у каждого продукта свой остаток по размеру
+
 product_size_association = Table(
     "product_size_association",
     Base.metadata,
@@ -22,10 +21,14 @@ class ProductCategory(Base):
     __tablename__ = "category"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_ru: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(100), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
+
+    def localized_name(self, lang: str) -> str:
+        return self.name_en if lang == "en" else self.name_ru
 
 
 class ProductBrand(Base):
@@ -39,7 +42,6 @@ class ProductBrand(Base):
 
 
 class ProductSize(Base):
-    """Справочник размеров — XS, S, M, L, XL и т.д."""
     __tablename__ = "size"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)
