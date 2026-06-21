@@ -29,6 +29,7 @@ async def get_category(category_id: int, service=Depends(get_product_service), l
 async def update_category(category_id: int, data: CategoryUpdate, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.update_category(category_id, data, lang)
 
+
 @category_router.delete("/delete_category/{category_id}")
 async def delete_category(category_id: int, service=Depends(get_product_service)):
     return await service.delete_category(category_id)
@@ -48,6 +49,7 @@ async def get_stats(service=Depends(get_product_service), lang: str = Depends(ge
 async def get_product(product_id: int, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.get_product(product_id, lang)
 
+
 @product_router.get("/get_products", response_model=ProductListOut)
 async def get_products(
     search: str | None = None,
@@ -65,6 +67,7 @@ async def get_products(
     page_size: int = Query(10, ge=1, le=100),
     service=Depends(get_product_service),
     lang: str = Depends(get_language),
+
 ):
     filters = ProductFilters(
         search=search,
@@ -92,6 +95,7 @@ async def get_products(
 @product_router.patch("/update_product/{product_id}", response_model=ProductOut)
 async def update_product(product_id: int, data: ProductUpdate, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.update_product(product_id, data, lang)
+
 
 @product_router.delete("/delete_product/{product_id}")
 async def delete_product(product_id: int, service=Depends(get_product_service)):

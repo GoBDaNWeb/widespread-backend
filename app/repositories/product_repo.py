@@ -14,6 +14,7 @@ from app.schemas.product import CategoryCreate, CategoryUpdate, ProductCreate, P
     ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters, \
     ProductSortField, SortOrder, ProductStats, PriceStats, CategoryStat, BrandStat, GenderStats, PriceBucket, Gender
 
+
 PRICE_BUCKETS: list[tuple[int, int | None]] = [
     (0, 50),
     (50, 100),

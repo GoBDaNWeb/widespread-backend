@@ -71,7 +71,6 @@ class CategoryOut(BaseModel):
     def localized(cls, obj, lang: str) -> "CategoryOut":
         return cls(id=obj.id, name=obj.localized_name(lang), slug=obj.slug)
 
-
 class BrandCreate(BaseModel):
     name: str
     slug: str
@@ -192,6 +191,7 @@ class ProductOut(BaseModel):
             images=[ProductImageOut.model_validate(i) for i in obj.images],
             sizes=[ProductSizeOut.model_validate(s) for s in obj.sizes],
         )
+
 
 
 class ProductListOut(BaseModel):

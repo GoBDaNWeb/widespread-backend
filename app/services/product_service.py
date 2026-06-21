@@ -9,6 +9,7 @@ from app.schemas.product import CategoryCreate, CategoryOut, CategoryUpdate, Pro
     ProductSizeCreate, ProductSizeUpdate, ProductImageCreate, ProductImageUpdate, BrandCreate, BrandUpdate, ProductFilters
 
 
+
 class ProductService:
     def __init__(self, product_repo: ProductRepository):
         self.product_repo = product_repo
@@ -34,6 +35,7 @@ class ProductService:
         except CategoryNotFound:
             raise HTTPException(status_code=404, detail=f"Category {category_id} not found")
         return CategoryOut.localized(obj, lang)
+
 
     async def delete_category(self, category_id: int):
         try:
