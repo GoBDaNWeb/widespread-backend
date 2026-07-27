@@ -13,31 +13,31 @@ from app.schemas.product import CategoryCreate, CategoryOut, CategoryUpdate, Pro
 
 category_router = APIRouter(prefix="/categories", tags=["Product/Category"])
 
-@category_router.post("/create_category", response_model=CategoryOut)
+@category_router.post("/", response_model=CategoryOut)
 async def create_category(data: CategoryCreate, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.create_category(data, lang)
 
-@category_router.get("/get_categories", response_model=list[CategoryOut])
+@category_router.get("/", response_model=list[CategoryOut])
 async def get_categories(service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.get_categories(lang)
 
-@category_router.get("/get_category/{category_id}", response_model=CategoryOut)
+@category_router.get("/{category_id}", response_model=CategoryOut)
 async def get_category(category_id: int, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.get_category(category_id, lang)
 
-@category_router.patch("/update_category/{category_id}", response_model=CategoryOut)
+@category_router.patch("/{category_id}", response_model=CategoryOut)
 async def update_category(category_id: int, data: CategoryUpdate, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.update_category(category_id, data, lang)
 
 
-@category_router.delete("/delete_category/{category_id}")
+@category_router.delete("/{category_id}")
 async def delete_category(category_id: int, service=Depends(get_product_service)):
     return await service.delete_category(category_id)
 
 
 product_router = APIRouter(prefix="/products", tags=["Product"])
 
-@product_router.post("/create_product", response_model=ProductOut)
+@product_router.post("/", response_model=ProductOut)
 async def create_product(data: ProductCreate, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.create_product(data, lang)
 
@@ -45,12 +45,12 @@ async def create_product(data: ProductCreate, service=Depends(get_product_servic
 async def get_stats(service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.get_stats(lang)
 
-@product_router.get("/get_product/{product_id}", response_model=ProductOut)
+@product_router.get("/{product_id}", response_model=ProductOut)
 async def get_product(product_id: int, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.get_product(product_id, lang)
 
 
-@product_router.get("/get_products", response_model=ProductListOut)
+@product_router.get("/", response_model=ProductListOut)
 async def get_products(
     search: str | None = None,
     category_id: int | None = None,
@@ -92,12 +92,12 @@ async def get_products(
         pages=math.ceil(total / page_size) if total else 0,
     )
 
-@product_router.patch("/update_product/{product_id}", response_model=ProductOut)
+@product_router.patch("/{product_id}", response_model=ProductOut)
 async def update_product(product_id: int, data: ProductUpdate, service=Depends(get_product_service), lang: str = Depends(get_language)):
     return await service.update_product(product_id, data, lang)
 
 
-@product_router.delete("/delete_product/{product_id}")
+@product_router.delete("/{product_id}")
 async def delete_product(product_id: int, service=Depends(get_product_service)):
     print(product_id)
     return await service.delete_product(product_id)
@@ -105,45 +105,45 @@ async def delete_product(product_id: int, service=Depends(get_product_service)):
 
 sizes_router = APIRouter(prefix="/sizes", tags=["Product/Size"])
 
-@sizes_router.get("/get_sizes")
+@sizes_router.get("/")
 async def get_sizes(service=Depends(get_product_service)):
     return await service.get_sizes()
 
-@sizes_router.get("/get_size/{size_id}")
+@sizes_router.get("/{size_id}")
 async def get_size(size_id: int, service=Depends(get_product_service)):
     return await service.get_size(size_id)
 
-@sizes_router.post("/create_size")
+@sizes_router.post("/")
 async def create_size(data: ProductSizeCreate, service=Depends(get_product_service)):
     return await service.create_size(data)
 
-@sizes_router.patch("/update_size/{size_id}")
+@sizes_router.patch("/{size_id}")
 async def update_size(size_id: int, data: ProductSizeUpdate, service=Depends(get_product_service)):
     return await service.update_size(size_id,data)
 
-@sizes_router.delete("/delete_size/{size_id}")
+@sizes_router.delete("/{size_id}")
 async def delete_size(size_id: int, service=Depends(get_product_service)):
     return await service.delete_size(size_id)
 
 brand_router = APIRouter(prefix="/brands", tags=["Product/Brand"])
 
-@brand_router.post("/create_brand")
+@brand_router.post("/")
 async def create_brand(data: BrandCreate, service=Depends(get_product_service)):
     return await service.create_brand(data)
 
-@brand_router.get("/get_brands")
+@brand_router.get("/")
 async def get_brands(service=Depends(get_product_service)):
     return await service.get_brands()
 
-@brand_router.get("/get_brand/{brand_id}")
+@brand_router.get("/{brand_id}")
 async def get_brand(brand_id: int, service=Depends(get_product_service)):
     return await service.get_brand(brand_id)
 
-@brand_router.patch("/update_brand/{brand_id}")
+@brand_router.patch("/{brand_id}")
 async def update_brand(brand_id: int, data: BrandUpdate, service=Depends(get_product_service)):
     return await service.update_brand(brand_id, data)
 
-@brand_router.delete("/delete_brand/{brand_id}")
+@brand_router.delete("/{brand_id}")
 async def delete_brand(brand_id: int, service=Depends(get_product_service)):
     return await service.delete_brand(brand_id)
 
@@ -154,18 +154,18 @@ image_router = APIRouter(prefix="/images", tags=["Image"])
 async def get_images_by_product(product_id: int, service=Depends(get_product_service)):
     return await service.get_images_by_product(product_id)
 
-@image_router.get("/get_image/{image_id}")
+@image_router.get("/{image_id}")
 async def get_image(image_id: int, service=Depends(get_product_service)):
     return await service.get_image(image_id)
 
-@image_router.post("/create_image")
+@image_router.post("/")
 async def create_image(data: ProductImageCreate, service=Depends(get_product_service)):
     return await service.create_image(data)
 
-@image_router.patch("/update_image/{image_id}")
+@image_router.patch("/{image_id}")
 async def update_image(image_id: int, data: ProductImageUpdate, service=Depends(get_product_service)):
     return await service.update_image(image_id, data)
 
-@image_router.delete("/delete_image/{image_id}")
+@image_router.delete("/{image_id}")
 async def delete_image(image_id: int, service=Depends(get_product_service)):
     return await service.delete_image(image_id)
